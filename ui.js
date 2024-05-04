@@ -6,7 +6,6 @@ class UI extends Phaser.Scene {
     }
 
     create () {
-        
         this.fuelBar = this.add.graphics();
 
         this.fuelBar.fillStyle(0xded9ff, 1)
