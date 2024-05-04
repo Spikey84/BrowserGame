@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
+    <script src="./ui.js"></script>
+</head>
+<body>
+
+    <script>
+
+    function distance(x1, y1, x2, y2) {
+        return Math.sqrt(Math.pow(Math.abs(x1-x2), 2) + Math.pow(Math.abs(y1-y2), 2))
+    }
+
+    function getAngleFromPosition(x, y) {
+        if(x >= 0 && y >= 0) {
+            return Math.acos(x)
+        } else if(x <= 0 && y >= 0) {
+            return Math.acos(y) + Math.PI/2
+        } else if(x <= 0 && y <= 0) {
+            return Math.acos(-x) + Math.PI
+        } else if(x >= 0 && y <= 0) {
+            return Math.asin(x) + Math.PI*1.5
+        }
+    }
+
+    function getAngleTowardsPoint(originX, originY, pointX, pointY) {
+        let distance = Math.sqrt(Math.pow(Math.abs(originX-pointX), 2) + Math.pow(Math.abs(originY-pointY), 2))
+        if (distance == 0 ) return null;
+        let scaledX = (originX-pointX == 0) ? 0 : (Math.abs(originX-pointX)*(1/distance)) * ((pointX-originX) / Math.abs(pointX-originX))
+        let scaledY = (originY-pointY == 0) ? 0 : (Math.abs(originY-pointY)*(1/distance)) * ((pointY-originY) / Math.abs(pointY-originY))
+        return getAngleFromPosition(scaledX, scaledY)
+    }
+
+    //Types:
+    //  expelField:
+    //      Pushes the sprite in the direction of the arrow.
+    //  GravityField:
+    //      Pulls the sprite towards the center of the field.
+    class Field {
+        expelField(player) {
+            let fieldDirection = this.physicsObject.rotation + (Math.PI * 1.5)
+            let distance = Math.sqrt(Math.pow(player.x - this.physicsObject.x, 2), Math.pow(player.y - this.physicsObject.y, 2))
+        
+            player.setVelocityX(player.body.velocity.x + Math.cos(fieldDirection) * 10/(distance+1));
+            player.setVelocityY(player.body.velocity.y + Math.sin(fieldDirection) * 10/(distance+1));
+        }
+
+        gravityField(player) {
+            let angle = getAngleTowardsPoint(player.x, player.y, this.physicsObject.x, this.physicsObject.y)
+            let distance = Math.sqrt(Math.pow(player.x - this.physicsObject.x, 2), Math.pow(player.y - this.physicsObject.y, 2))
+
+            let speedFactor = 2
+            player.setVelocityX(player.body.velocity.x + Math.cos(angle) * speedFactor);
+            player.setVelocityY(player.body.velocity.y + Math.sin(angle) * speedFactor);
+        }
+
+        constructor(physics, type, locationX, locationY) {
+            if (type == "expelField") {
+                this.callbackFunction = this.expelField;
+                this.physicsObject = physics.add.image(locationX, locationY, 'posArrowField').setScale(0.1).refreshBody().setCircle(400).setOffset(400,400)
+                this.physicsObject.rotation = (Math.random() * 100) % (2 * Math.PI)
+            } else if(type == "gravityField") {
+                this.callbackFunction = this.gravityField;
+                this.physicsObject = physics.add.image(locationX, locationY, 'negArrowField').setScale(0.5).refreshBody().setCircle(400).setOffset(400,400)
+            }
+        }
+
+        destroy() {
+            this.physicsObject.destroy()
+        }
+    }
+
+    class Chunk {
+        constructor(scene, x, y) {
+            this.x = x
+            this.y = y
+            this.seed = Math.random()
+
+            this.active = true
+            scene.activeChunks++;
+            this.scene = scene
+
+            this.size = 1500;
+            this.locationX = x*this.size
+            this.locationY = y*this.size
+            this.physics = scene.physics
+
+
+            this.physicsObject = this.scene.add.graphics();
+            this.generateContents(scene.physics);
+        }
+
+        generateContents(physics) {
+            
+
+            //top
+            this.physicsObject.lineBetween(this.locationX,this.locationY,this.locationX + 1500,this.locationY);
+            //bottom
+            this.physicsObject.lineBetween(this.locationX,this.locationY + 1500,this.locationX + 1500,this.locationY + 1500);
+            //left
+            this.physicsObject.lineBetween(this.locationX,this.locationY,this.locationX,this.locationY + 1500);
+            //right
+            this.physicsObject.lineBetween(this.locationX + 1500,this.locationY,this.locationX + 1500,this.locationY + 1500);
+            //center
+            this.physicsObject.lineBetween(this.locationX, this.locationY, this.locationX + 1500, this.locationY + 1500);
+
+            this.fields = []
+            let locations = [[200, 200], [600, 600], [ 900, 200]]
+
+            for (let i  = 0; i < locations.length; i++) {
+                //this.fields[this.fields.length] = new Field(this.physics, "gravityField", ((Math.random()% 1)*1500), ((Math.random()% 1)*800))
+                this.fields[this.fields.length] = new Field(physics, "gravityField", this.locationX + locations[i][0],this.locationY + locations[i][1])
+            }
+        }
+
+        isPlayerInChunk(player) {
+            if (player.x + player.radius < this.locationX) return false;
+            if (player.y + player.radius < this.locationY) return false;
+            if (player.x - player.radius > this.locationX + this.size) return false;
+            if (player.y - player.radius > this.locationY + this.size) return false;
+            return true;
+        }
+
+        update(physics, player) {
+            for (let i = 0; i < this.fields.length; i++) {
+                let field = this.fields[i]
+                if (physics.overlap(player, field.physicsObject)) {
+                    field.callbackFunction(player)
+                }
+            }
+        }
+
+        removeContents() {
+            for (let i = 0; i < this.fields.length; i++) {
+                this.fields[i].destroy()
+            }
+            this.fields = []
+            this.physicsObject.clear()
+        }
+
+        setActive(bool) {
+            if (bool && !this.active) {
+                this.generateContents(this.physics)
+                this.active = true
+                this.scene.activeChunks++;
+            } else if(!bool && this.active) {
+                this.removeContents()
+                this.active = false
+                this.scene.activeChunks--;
+            }
+        }
+    }
+
+
+    class Game extends Phaser.Scene
+    {
+
+        preload () {
+            this.load.image('circle', 'assets/circle.png');
+            this.load.image('darkCircle', 'assets/darkCircle.png');
+            this.load.image('arrowCircle', 'assets/circleWithArrow.png');
+            this.load.image('posArrowField', 'assets/posArrowField.png');
+            this.load.image('negArrowField', 'assets/negArrowField.png');
+        }
+
+        create () {
+            this.activeChunks = 0;
+
+            this.fuelAmount = 100
+            this.scene.launch("ui")
+            this.ui = this.scene.get("ui")
+            console.log(this.scene.isVisible(this))
+            
+
+            this.chunks = []
+            
+            for (let i = -2; i < 2;i++) {
+                for (let j = -2; j < 2; j++) {
+                    if (typeof(this.chunks[i]) == "undefined") this.chunks[i] = []
+                    this.chunks[i][j] = new Chunk(this, i , j)
+                }
+                
+            }
+            
+            //700 100
+            this.player = this.physics.add.sprite(700, 100, 'arrowCircle').setScale(0.05);
+            this.player.radius = 200*0.05
+            this.player.setBounce(0.9);
+            this.player.setCircle(400)
+            this.player.setOffset(400, 400)
+            
+
+            this.player.setVelocityX(0)
+            this.player.setVelocityY(0)
+
+            // this.cameras.main.setBounds(0,0, 400, 400)
+            this.cameras.main.startFollow(this.player)
+            //this.cameras.main.setZoom(0.1)
+        }
+
+        update ()
+        {
+            console.log("(" + Math.round(this.player.x) + ", " + Math.round(this.player.y) + ")" + this.activeChunks + ", " + Math.round(game.loop.actualFps))
+            
+            var cursors = this.input.keyboard.createCursorKeys();
+            if (cursors.left.isDown) {
+                this.player.rotation = this.player.rotation-0.1;
+            }
+            if (cursors.right.isDown) {
+                this.player.rotation = this.player.rotation+0.1;
+            }
+            if (cursors.up.isDown) {
+                if (this.fuelAmount > 0) {
+                    this.fuelAmount = this.fuelAmount - 0.5
+                    this.scene.get("ui").updateFuelBar(this.fuelAmount);
+
+                    let radians = this.player.rotation + (Math.PI * 1.5)
+                
+                    this.player.setVelocityX(this.player.body.velocity.x + Math.cos(radians) * 1);
+                    this.player.setVelocityY(this.player.body.velocity.y + Math.sin(radians) * 1);
+                }
+            }
+
+            for (let i  = -100; i < this.chunks.length; i++) {
+                if (typeof(this.chunks[i]) == "undefined") continue
+                for (let j = -100; j < this.chunks[i].length; j++) {
+                    if (typeof(this.chunks[i][j]) == "undefined") continue;
+                    let chunk = this.chunks[i][j]
+
+                    // if chunk is inactive but close to the player then activate it and if a chunk is active and far away deactiveate it and do not check if player is in it
+                    if (chunk.active) {
+                        if (distance(chunk.locationX, chunk.locationY, this.player.x, this.player.y) > chunk.size*2) {
+                            chunk.setActive(false)
+                            continue;
+                        }
+                    }
+
+                    //if player is not in chunk stop here
+                    if (!chunk.isPlayerInChunk(this.player)) continue;
+        
+
+                    // Generate new chunks
+                    for (let a = i - 2; a < i + 2;a++) {
+                        for (let b = j - 2; b < j + 2; b++) {
+                            //Allows for 2d array
+                            if (typeof(this.chunks[a]) == "undefined") this.chunks[a] = []
+                            //checks if chunk exists
+                            if (typeof(this.chunks[a][b]) != "undefined") {
+                                //activates the chunk if it exists
+                                this.chunks[a][b].setActive(true)
+                                continue;
+                            }
+                            //creates the chunk if it does not exist
+                            this.chunks[a][b] = new Chunk(this, a , b)
+                    }
+                
+            }
+
+                    chunk.update(this.physics, this.player)
+                }
+                
+            }
+
+            if (this.fuelAmount < 100) {
+                this.fuelAmount = this.fuelAmount + 0.1
+                this.scene.get("ui").updateFuelBar(this.fuelAmount);
+            }
+            
+        }
+            
+    }
+
+    const config = {
+        type: Phaser.AUTO,
+        width: 1600,
+        height: 800,
+        physics: {
+            default: 'arcade',
+            arcade: {
+                gravity: {},
+                debug: true
+            }
+        }
+    };
+
+    
+
+    const game = new Phaser.Game(config);
+    game.scene.add("game", Game)
+    game.scene.add("ui", UI)
+    game.scene.start("game")
+    </script>
+
+</body>
+</html>
