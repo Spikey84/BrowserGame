@@ -92,8 +92,6 @@
         }
 
         generateContents(physics) {
-            
-
             //top
             this.physicsObject.lineBetween(this.locationX,this.locationY,this.locationX + 1500,this.locationY);
             //bottom
@@ -152,76 +150,21 @@
         }
     }
 
+    class ChunkManager {
+        constructor(scene, player) {
+            this.scene = scene
+            this.player = player
 
-    class Game extends Phaser.Scene
-    {
-
-        preload () {
-            this.load.image('circle', 'assets/circle.png');
-            this.load.image('darkCircle', 'assets/darkCircle.png');
-            this.load.image('arrowCircle', 'assets/circleWithArrow.png');
-            this.load.image('posArrowField', 'assets/posArrowField.png');
-            this.load.image('negArrowField', 'assets/negArrowField.png');
-        }
-
-        create () {
-            this.activeChunks = 0;
-
-            this.fuelAmount = 100
-            this.scene.launch("ui")
-            this.ui = this.scene.get("ui")
-            console.log(this.scene.isVisible(this))
-            
-
-            this.chunks = []
-            
+            this.chunks = []            
             for (let i = -2; i < 2;i++) {
                 for (let j = -2; j < 2; j++) {
                     if (typeof(this.chunks[i]) == "undefined") this.chunks[i] = []
-                    this.chunks[i][j] = new Chunk(this, i , j)
+                    this.chunks[i][j] = new Chunk(scene, i , j)
                 }
-                
             }
-            
-            //700 100
-            this.player = this.physics.add.sprite(700, 100, 'arrowCircle').setScale(0.05);
-            this.player.radius = 200*0.05
-            this.player.setBounce(0.9);
-            this.player.setCircle(400)
-            this.player.setOffset(400, 400)
-            
-
-            this.player.setVelocityX(0)
-            this.player.setVelocityY(0)
-
-            // this.cameras.main.setBounds(0,0, 400, 400)
-            this.cameras.main.startFollow(this.player)
-            //this.cameras.main.setZoom(0.1)
         }
 
-        update ()
-        {
-            console.log("(" + Math.round(this.player.x) + ", " + Math.round(this.player.y) + ")" + this.activeChunks + ", " + Math.round(game.loop.actualFps))
-            
-            var cursors = this.input.keyboard.createCursorKeys();
-            if (cursors.left.isDown) {
-                this.player.rotation = this.player.rotation-0.1;
-            }
-            if (cursors.right.isDown) {
-                this.player.rotation = this.player.rotation+0.1;
-            }
-            if (cursors.up.isDown) {
-                if (this.fuelAmount > 0) {
-                    this.fuelAmount = this.fuelAmount - 0.5
-                    this.scene.get("ui").updateFuelBar(this.fuelAmount);
-
-                    let radians = this.player.rotation + (Math.PI * 1.5)
-                
-                    this.player.setVelocityX(this.player.body.velocity.x + Math.cos(radians) * 1);
-                    this.player.setVelocityY(this.player.body.velocity.y + Math.sin(radians) * 1);
-                }
-            }
-
+        updateChunks() {
             for (let i  = -100; i < this.chunks.length; i++) {
                 if (typeof(this.chunks[i]) == "undefined") continue
                 for (let j = -100; j < this.chunks[i].length; j++) {
@@ -238,7 +181,6 @@
 
                     //if player is not in chunk stop here
                     if (!chunk.isPlayerInChunk(this.player)) continue;
-        
 
                     // Generate new chunks
                     for (let a = i - 2; a < i + 2;a++) {
@@ -252,23 +194,88 @@
                                 continue;
                             }
                             //creates the chunk if it does not exist
-                            this.chunks[a][b] = new Chunk(this, a , b)
+                            this.chunks[a][b] = new Chunk(this.scene, a , b)
+                        }
                     }
-                
-            }
-
-                    chunk.update(this.physics, this.player)
+                    chunk.update(this.scene.physics, this.player)
                 }
-                
             }
+        }
+    }
 
+    class PlayerManager {
+        constructor(scene, name, fuelLimit, size, startingX, startingY) {
+            this.player = scene.physics.add.sprite(startingX, startingY, 'arrowCircle').setScale(0.05);
+            this.player.radius = 200*0.05
+            this.player.setCircle(400)
+            this.player.setOffset(400, 400)
+            this.player.setVelocityX(0)
+            this.player.setVelocityY(0)
+
+            this.cursors = scene.input.keyboard.createCursorKeys();
+            this.fuelAmount = fuelLimit;
+            this.scene = scene
+        }
+
+        updateControls() {
+            if (this.cursors.left.isDown) {
+                this.player.rotation = this.player.rotation-0.1;
+            }
+            if (this.cursors.right.isDown) {
+                this.player.rotation = this.player.rotation+0.1;
+            }
+            if (this.cursors.up.isDown) {
+                if (this.fuelAmount > 0) {
+                    this.fuelAmount = this.fuelAmount - 0.5
+                    this.scene.scene.get("ui").updateFuelBar(this.fuelAmount);
+
+                    let radians = this.player.rotation + (Math.PI * 1.5)
+                
+                    this.player.setVelocityX(this.player.body.velocity.x + Math.cos(radians) * 1);
+                    this.player.setVelocityY(this.player.body.velocity.y + Math.sin(radians) * 1);
+                }
+            }
+        }
+
+        updateFuel() {
             if (this.fuelAmount < 100) {
                 this.fuelAmount = this.fuelAmount + 0.1
-                this.scene.get("ui").updateFuelBar(this.fuelAmount);
+                this.scene.scene.get("ui").updateFuelBar(this.fuelAmount);
             }
-            
         }
+    }
+
+
+    class Game extends Phaser.Scene {
+
+        preload () {
+            this.load.image('circle', 'assets/circle.png');
+            this.load.image('darkCircle', 'assets/darkCircle.png');
+            this.load.image('arrowCircle', 'assets/circleWithArrow.png');
+            this.load.image('posArrowField', 'assets/posArrowField.png');
+            this.load.image('negArrowField', 'assets/negArrowField.png');
+        }
+
+        create () {
+            this.activeChunks = 0;
+
+            this.scene.launch("ui")
+            this.ui = this.scene.get("ui")
             
+            //700 100
+            this.playerManager = new PlayerManager(this, "Me", 100, 400, 700, 100)
+            this.chunkManager = new ChunkManager(this, this.playerManager.player)
+
+            this.cameras.main.startFollow(this.playerManager.player)
+            //this.cameras.main.setZoom(0.1)
+        }
+
+        update () {
+            //console.log("(" + Math.round(this.player.x) + ", " + Math.round(this.player.y) + ")" + this.activeChunks + ", " + Math.round(game.loop.actualFps))
+            this.playerManager.updateControls()
+            this.playerManager.updateFuel();
+            this.chunkManager.updateChunks()
+        }
     }
 
     const config = {
@@ -279,12 +286,10 @@
             default: 'arcade',
             arcade: {
                 gravity: {},
-                debug: true
+                debug: false
             }
         }
     };
-
-    
 
     const game = new Phaser.Game(config);
     game.scene.add("game", Game)
