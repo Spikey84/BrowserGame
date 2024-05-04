@@ -7,6 +7,7 @@
     <script src="./Field.js"></script>
     <script src="./ChunkManager.js"></script>
     <script src="./PlayerManager.js"></script>
+    <script src="./MathStuff.js"></script>
 </head>
 <body>
 
@@ -23,9 +24,9 @@
         }
 
         create () {
+            this.seed = Math.random()
             game.scene.add("ui", UI)
             this.scene.launch("ui")
-            this.ui = this.scene.get("ui")
 
             this.activeChunks = 0;
 
@@ -53,7 +54,7 @@
             default: 'arcade',
             arcade: {
                 gravity: {},
-                debug: false
+                debug: true
             }
         }
     };

@@ -10,16 +10,14 @@ class PlayerManager {
         this.cursors = scene.input.keyboard.createCursorKeys();
         this.fuelAmount = fuelLimit;
         this.scene = scene
+
+        this.scene.input.setPollAlways();
+        this.scene.input.on("pointermove", this.followPointer, this)
     }
 
     updateControls() {
-        if (this.cursors.left.isDown) {
-            this.player.rotation = this.player.rotation-0.1;
-        }
-        if (this.cursors.right.isDown) {
-            this.player.rotation = this.player.rotation+0.1;
-        }
-        if (this.cursors.up.isDown) {
+        let pointer = this.scene.input.activePointer;
+        if (pointer.isDown) {
             if (this.fuelAmount > 0) {
                 this.fuelAmount = this.fuelAmount - 0.5
                 this.scene.scene.get("ui").updateFuelBar(this.fuelAmount);
@@ -30,6 +28,11 @@ class PlayerManager {
                 this.player.setVelocityY(this.player.body.velocity.y + Math.sin(radians) * 1);
             }
         }
+    }
+
+    followPointer(pointer) {
+        //player is at 800, 400
+        this.player.rotation = getAngleTowardsPoint(800, 400, pointer.x, pointer.y) - (Math.PI * 1.5)
     }
 
     updateFuel() {

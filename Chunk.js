@@ -2,19 +2,26 @@ class Chunk {
     constructor(scene, x, y) {
         this.x = x
         this.y = y
-        this.seed = Math.random()
-
-        this.active = true
-        scene.activeChunks++;
         this.scene = scene
-
+        
+        this.active = true
+        this.scene.activeChunks++;
+        
         this.size = 1500;
         this.locationX = x*this.size
         this.locationY = y*this.size
-        this.physics = scene.physics
-
+        this.physics = this.scene.physics
 
         this.physicsObject = this.scene.add.graphics();
+        
+        this.chunkSeed = this.scene.seed * this.x * this.y
+        this.fieldAmount = Math.round((this.chunkSeed*30)%4) + 3
+        this.fieldLocations = []
+
+        for (let i = 0; i < this.fieldAmount; i++) {
+            this.fieldLocations[i] = [(this.chunkSeed * i * 20000) % this.size, (this.chunkSeed * i * 20000) % this.size]
+        }
+
         this.generateContents(scene.physics);
     }
 
@@ -31,10 +38,9 @@ class Chunk {
         this.physicsObject.lineBetween(this.locationX, this.locationY, this.locationX + 1500, this.locationY + 1500);
 
         this.fields = []
-        let locations = [[200, 200], [600, 600], [ 900, 200]]
 
-        for (let i  = 0; i < locations.length; i++) {
-            this.fields[this.fields.length] = new Field(physics, "gravityField", this.locationX + locations[i][0],this.locationY + locations[i][1])
+        for (let i  = 0; i < this.fieldLocations.length; i++) {
+            this.fields[this.fields.length] = new Field(physics, "gravityField", this.locationX + this.fieldLocations[i][0],this.locationY + this.fieldLocations[i][1])
         }
     }
 

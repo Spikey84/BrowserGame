@@ -1,6 +1,5 @@
 class UI extends Phaser.Scene {
 
-
     preload () {
         console.log("Ui Loaded")
     }
@@ -32,6 +31,3 @@ const uiConfig = {
     width: 1600,
     height: 800,
 };
-
-
-
